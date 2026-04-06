@@ -1,3 +1,4 @@
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import '../services/auth_service.dart';
@@ -11,8 +12,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey    = GlobalKey<FormState>();
-  final _userCtrl   = TextEditingController();
-  final _senhaCtrl  = TextEditingController();
+  final _userCtrl   = TextEditingController(text: 'jhon.joe');
+  final _senhaCtrl  = TextEditingController(text: 'secret123');
   bool _senhaVisivel = false;
   bool _carregando   = false;
 
@@ -26,13 +27,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final username = _userCtrl.text.trim();
+    dev.log('LoginScreen: tentando login — usuário: $username', name: 'LoginScreen');
+
     setState(() => _carregando = true);
 
     try {
-      await AuthService.instance.login(
-        _userCtrl.text.trim(),
-        _senhaCtrl.text,
-      );
+      await AuthService.instance.login(username, _senhaCtrl.text);
+
+      dev.log('LoginScreen: login bem-sucedido — navegando para HomeScreen', name: 'LoginScreen');
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -44,6 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } on AuthException catch (e) {
+      dev.log('LoginScreen: falha no login — ${e.message}', name: 'LoginScreen');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

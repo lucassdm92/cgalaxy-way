@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
-import '../models/delivery.dart';
 import '../services/delivery_service.dart';
 import '../services/session_service.dart';
+import 'pedidos_screen.dart';
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -50,37 +50,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _originCtrl = TextEditingController();
-  final _destCtrl   = TextEditingController();
+  final _originCtrl = TextEditingController(
+    text: SessionService.instance.client?.address ?? '',
+  );
+  final _destCtrl = TextEditingController();
   int _tab = 0;
-
-  List<Delivery> _entregas    = [];
-  bool           _loadingPedidos = false;
-  String?        _erroPedidos;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchEntregas();
-  }
-
-  Future<void> _fetchEntregas() async {
-    final clientId = SessionService.instance.clientId;
-    if (clientId == null) return;
-
-    setState(() { _loadingPedidos = true; _erroPedidos = null; });
-
-    try {
-      final entregas = await DeliveryService.instance.fetchByClient(clientId);
-      if (!mounted) return;
-      setState(() { _entregas = entregas; });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() { _erroPedidos = e.toString(); });
-    } finally {
-      if (mounted) setState(() { _loadingPedidos = false; });
-    }
-  }
 
   @override
   void dispose() {
@@ -119,13 +93,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final response = await http
           .post(
             Uri.parse(AppConfig.precos),
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${SessionService.instance.token}',
+            },
             body: jsonEncode({
               'origin':      _originCtrl.text.trim(),
               'destination': _destCtrl.text.trim(),
               'date':        date,
-              'user_ip':     '192.168.1.1',
-              'clientId':   SessionService.instance.clientId,
+              'username':    SessionService.instance.username,
             }),
           )
           .timeout(AppConfig.timeout);
@@ -176,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: _tab == 1
-                  ? _buildPedidosTab()
+                  ? const PedidosScreen()
                   : SingleChildScrollView(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Column(
@@ -204,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Header ────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
-    final clientName = SessionService.instance.clientName ?? 'GalaxyWay';
+    final clientName = SessionService.instance.client?.name ?? 'GalaxyWay';
     final initials   = clientName
         .trim()
         .split(' ')
@@ -279,45 +255,39 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Conteúdo
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
-              child: Row(
+            // Imagem cobrindo o banner inteiro
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/astronauta.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+              ),
+            ),
+
+            // Texto sobreposto
+            Positioned(
+              left: 20,
+              bottom: 20,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Texto
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Galaxy',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 38,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
-                            height: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Explore os planetas.\nEntregas em toda a galáxia.',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            fontSize: 12,
-                            height: 1.55,
-                          ),
-                        ),
-                      ],
+                  const Text(
+                    'Galaxy Go',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                      height: 1,
                     ),
                   ),
-
-                  // Ilustração
-                  Image.asset(
-                    'assets/images/astronauta.png',
-                    height: 140,
-                    fit: BoxFit.contain,
+                  const SizedBox(height: 6),
+                  Text(
+                    'Venha fazer parte dessa galaxia',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -449,167 +419,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 border: InputBorder.none,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Pedidos Tab ───────────────────────────────────────────────────────────
-
-  Widget _buildPedidosTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Meus Pedidos',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _C.primary),
-              ),
-              if (_loadingPedidos)
-                const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: _C.accent),
-                )
-              else
-                IconButton(
-                  onPressed: _fetchEntregas,
-                  icon: const Icon(Icons.refresh_rounded, color: _C.muted, size: 22),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _buildPedidosBody(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPedidosBody() {
-    if (_loadingPedidos && _entregas.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: _C.accent),
-      );
-    }
-
-    if (_erroPedidos != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: _C.muted),
-            const SizedBox(height: 12),
-            Text(
-              _erroPedidos!,
-              style: const TextStyle(fontSize: 13, color: _C.muted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: _fetchEntregas,
-              child: const Text('Tentar novamente', style: TextStyle(color: _C.accent)),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_entregas.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inbox_rounded, size: 48, color: _C.muted),
-            SizedBox(height: 12),
-            Text('Nenhuma entrega encontrada.', style: TextStyle(fontSize: 13, color: _C.muted)),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: _C.accent,
-      onRefresh: _fetchEntregas,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        itemCount: _entregas.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _buildEntregaCard(_entregas[i]),
-      ),
-    );
-  }
-
-  Widget _buildEntregaCard(Delivery d) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _C.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '#GW-${d.id}',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _C.primary),
-              ),
-              Text(
-                d.customerName,
-                style: const TextStyle(fontSize: 12, color: _C.muted),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Column(
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: _C.primary)),
-                  Container(width: 1.5, height: 18, color: _C.border),
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: _C.accent)),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(d.origin,      style: const TextStyle(fontSize: 13, color: _C.primary)),
-                    const SizedBox(height: 6),
-                    Text(d.destination, style: const TextStyle(fontSize: 13, color: _C.primary)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (d.customerNote != null && d.customerNote!.isNotEmpty)
-                Expanded(
-                  child: Text(
-                    d.customerNote!,
-                    style: const TextStyle(fontSize: 11, color: _C.muted),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              Text(
-                d.dataFormatada,
-                style: const TextStyle(fontSize: 11, color: _C.muted),
-              ),
-            ],
           ),
         ],
       ),
@@ -749,48 +558,30 @@ class _EntregaModalState extends State<_EntregaModal> {
     setState(() => _loading = true);
 
     try {
-      final response = await http
-          .post(
-            Uri.parse(AppConfig.delivery),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'price_calculation_id': widget.frete.id,
-              'origin':               widget.origem,
-              'destination':          widget.destino,
-              'client_id':            SessionService.instance.clientId,
-              'customer_name':        _nomeCtrl.text.trim(),
-              'customer_phone':       _telefoneCtrl.text.trim(),
-              'customer_note':        _notaCtrl.text.trim(),
-            }),
-          )
-          .timeout(AppConfig.timeout);
+      await DeliveryService.instance.requestDelivery(
+        priceCalculationId: widget.frete.id,
+        origin:             widget.origem,
+        destination:        widget.destino,
+        customerName:       _nomeCtrl.text.trim(),
+        customerPhone:      _telefoneCtrl.text.trim(),
+        customerNote:       _notaCtrl.text.trim(),
+      );
 
       if (!mounted) return;
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pedido confirmado! Buscando rider...'),
-            backgroundColor: Color(0xFF2E7D32),
-          ),
-        );
-      } else {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao criar pedido (${response.statusCode}).'),
-            backgroundColor: const Color(0xFFC62828),
-          ),
-        );
-      }
-    } catch (_) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pedido confirmado! Buscando rider...'),
+          backgroundColor: Color(0xFF2E7D32),
+        ),
+      );
+    } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível conectar ao servidor.'),
-          backgroundColor: Color(0xFFC62828),
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: const Color(0xFFC62828),
         ),
       );
     }

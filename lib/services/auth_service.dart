@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/auth_response.dart';
+import 'client_service.dart';
 import 'session_service.dart';
 
-/// Exceção lançada quando o login falha com motivo conhecido (ex: 401).
+/// Exceção lançada quando o login falha com motivo conhecido.
 class AuthException implements Exception {
   final String message;
   const AuthException(this.message);
@@ -19,7 +21,7 @@ class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
 
-  Future<AuthResponse> login(String username, String password) async {
+  Future<void> login(String username, String password) async {
     final http.Response response;
 
     try {
@@ -34,23 +36,26 @@ class AuthService {
       throw AuthException('Não foi possível conectar ao servidor. ($e)');
     }
 
-    switch (response.statusCode) {
-      case 200:
-      case 201:
-        final envelope = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = envelope['data'] as Map<String, dynamic>?;
-        if (data == null) {
-          throw AuthException(envelope['message'] as String? ?? 'Resposta inválida do servidor.');
-        }
-        final auth = AuthResponse.fromJson(data);
-        await SessionService.instance.save(auth);
-        return auth;
-      case 401:
-        throw const AuthException('Usuário ou senha inválidos.');
-      case 403:
-        throw const AuthException('Acesso negado.');
-      default:
-        throw AuthException('Erro do servidor (${response.statusCode}).');
+    debugPrint('[AuthService] login: status=${response.statusCode}');
+    debugPrint('[AuthService] login: body=${response.body}');
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final responseCode = body['responseCode'] as String?;
+
+    if (responseCode != '200') {
+      final message = body['message'] as String? ?? 'Erro do servidor (${response.statusCode}).';
+      throw AuthException(message);
+    }
+
+    final data = body['data'] as Map<String, dynamic>;
+    final auth = AuthResponse.fromJson(data);
+    debugPrint('[AuthService] login: token salvo=${auth.token}');
+    await SessionService.instance.save(auth);
+
+    try {
+      await ClientService.instance.fetchByUsername(auth.username);
+    } on ClientException catch (e) {
+      throw AuthException('Login efetuado, mas falha ao carregar dados da loja: ${e.message}');
     }
   }
 }
