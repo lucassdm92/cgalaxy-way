@@ -52,7 +52,13 @@ class DeliveryService {
     required String destination,
     required String customerName,
     required String customerPhone,
+    required String customerEmail,
     required String customerNote,
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+    required int? distanceMeters,
   }) async {
     final http.Response response;
 
@@ -70,8 +76,14 @@ class DeliveryService {
               'destination':          destination,
               'customer_name':        customerName,
               'customer_phone':       customerPhone,
+              'customer_email':       customerEmail,
               'customer_note':        customerNote,
               'user_name':            SessionService.instance.username,
+              'origin_latitude':      originLat,
+              'origin_longitude':     originLng,
+              'dest_latitude':        destLat,
+              'dest_longitude':       destLng,
+              if (distanceMeters != null) 'distance_meters': distanceMeters,
             }),
           )
           .timeout(AppConfig.timeout);

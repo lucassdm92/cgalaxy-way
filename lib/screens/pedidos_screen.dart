@@ -315,6 +315,22 @@ class _PedidosScreenState extends State<PedidosScreen> {
               ),
             ],
           ),
+          if (d.customerEmail != null && d.customerEmail!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.email_outlined, size: 14, color: _C.muted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    d.customerEmail!,
+                    style: const TextStyle(fontSize: 11, color: _C.muted),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (d.customerNote != null && d.customerNote!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Row(

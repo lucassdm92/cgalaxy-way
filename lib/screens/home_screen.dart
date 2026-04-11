@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../services/delivery_service.dart';
 import '../services/session_service.dart';
+import '../data/dial_codes.dart';
+import 'map_modal.dart';
 import 'pedidos_screen.dart';
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -22,18 +26,15 @@ class _C {
 class _PriceResponse {
   final int id;
   final double totalPrice;
-  final double distanceKm;
 
   const _PriceResponse({
     required this.id,
     required this.totalPrice,
-    required this.distanceKm,
   });
 
   factory _PriceResponse.fromJson(Map<String, dynamic> json) => _PriceResponse(
         id:         json['id'] as int,
         totalPrice: (json['total_price'] as num).toDouble(),
-        distanceKm: (json['distance_km'] as num).toDouble(),
       );
 
   String get totalFormatado =>
@@ -83,12 +84,58 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (_) => const _LoadingDialog(),
     );
 
-    bool dialogAberto = true;
-
     try {
+      final origemCoords = await _geocode(_originCtrl.text.trim());
+      final destinoCoords = await _geocode(_destCtrl.text.trim());
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      if (origemCoords == null || destinoCoords == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível localizar um dos endereços.'),
+            backgroundColor: Color(0xFFC62828),
+          ),
+        );
+        return;
+      }
+
+      final result = await showModalBottomSheet<MapResult>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        enableDrag: false,
+        builder: (_) => MapModal(
+          origemText:    _originCtrl.text.trim(),
+          destinoText:   _destCtrl.text.trim(),
+          origemCoords:  origemCoords,
+          destinoCoords: destinoCoords,
+        ),
+      );
+
+      if (result == null || !result.confirmed || !mounted) return;
+
+      _destCtrl.text = result.destinoText;
+      final finalDestinoCoords = result.destinoCoords;
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const _LoadingDialog(),
+      );
+
       final now  = DateTime.now();
       final date = '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}'
                    'T${now.hour.toString().padLeft(2,'0')}:${now.minute.toString().padLeft(2,'0')}:${now.second.toString().padLeft(2,'0')}';
+
+      final distanceMeters = await _roadDistanceMeters(origemCoords, finalDestinoCoords);
+
+      debugPrint('[PriceRequest] origin: ${_originCtrl.text.trim()}');
+      debugPrint('[PriceRequest] destination: ${_destCtrl.text.trim()}');
+      debugPrint('[PriceRequest] origemCoords: ${origemCoords.latitude}, ${origemCoords.longitude}');
+      debugPrint('[PriceRequest] destinoCoords: ${finalDestinoCoords.latitude}, ${finalDestinoCoords.longitude}');
+      debugPrint('[PriceRequest] distanceMeters: $distanceMeters');
 
       final response = await http
           .post(
@@ -98,17 +145,15 @@ class _HomeScreenState extends State<HomeScreen> {
               'Authorization': 'Bearer ${SessionService.instance.token}',
             },
             body: jsonEncode({
-              'origin':      _originCtrl.text.trim(),
-              'destination': _destCtrl.text.trim(),
               'date':        date,
               'username':    SessionService.instance.username,
+              if (distanceMeters != null) 'distance_meters': distanceMeters,
             }),
           )
           .timeout(AppConfig.timeout);
 
       if (!mounted) return;
       Navigator.of(context).pop();
-      dialogAberto = false;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final price = _PriceResponse.fromJson(
@@ -119,9 +164,12 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: Colors.transparent,
           isScrollControlled: true,
           builder: (_) => _EntregaModal(
-            frete:   price,
-            origem:  _originCtrl.text.trim(),
-            destino: _destCtrl.text.trim(),
+            frete:           price,
+            origem:          _originCtrl.text.trim(),
+            destino:         _destCtrl.text.trim(),
+            origemCoords:    origemCoords,
+            destinoCoords:   finalDestinoCoords,
+            distanceMeters:  distanceMeters,
           ),
         );
       } else {
@@ -134,11 +182,70 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      if (dialogAberto) Navigator.of(context).pop();
+      Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst || r is! DialogRoute);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: $e'), backgroundColor: const Color(0xFFC62828)),
       );
     }
+  }
+
+  Future<int?> _roadDistanceMeters(LatLng origin, LatLng destination) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('https://routes.googleapis.com/directions/v2:computeRoutes'),
+            headers: {
+              'Content-Type':      'application/json',
+              'X-Goog-Api-Key':    AppConfig.googleMapsKey,
+              'X-Goog-FieldMask':  'routes.distanceMeters',
+            },
+            body: jsonEncode({
+              'origin': {
+                'location': {
+                  'latLng': {'latitude': origin.latitude, 'longitude': origin.longitude},
+                },
+              },
+              'destination': {
+                'location': {
+                  'latLng': {'latitude': destination.latitude, 'longitude': destination.longitude},
+                },
+              },
+              'travelMode': 'DRIVE',
+            }),
+          )
+          .timeout(AppConfig.timeout);
+      if (response.statusCode == 200) {
+        final data   = jsonDecode(response.body) as Map<String, dynamic>;
+        final routes = data['routes'] as List<dynamic>;
+        if (routes.isNotEmpty) {
+          return (routes.first as Map<String, dynamic>)['distanceMeters'] as int;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<LatLng?> _geocode(String address) async {
+    try {
+      final uri = Uri.parse('https://maps.googleapis.com/maps/api/geocode/json').replace(
+        queryParameters: {
+          'address': address,
+          'key': AppConfig.googleMapsKey,
+          'region': (SessionService.instance.client?.countryCode ?? 'ie').toLowerCase(),
+          'components': 'country:${(SessionService.instance.client?.countryCode ?? 'IE').toUpperCase()}',
+        },
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final results = data['results'] as List<dynamic>;
+        if (results.isNotEmpty) {
+          final loc = (results.first as Map<String, dynamic>)['geometry']['location'];
+          return LatLng(loc['lat'] as double, loc['lng'] as double);
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -340,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Column(
           children: [
-            _buildAddressField(ctrl: _originCtrl, hint: 'Endereço de origem...', dot: _C.primary),
+            _buildAddressField(_originCtrl, 'Endereço de origem...', _C.primary),
 
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
@@ -367,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            _buildAddressField(ctrl: _destCtrl, hint: 'Endereço de destino...', dot: _C.accent),
+            _buildAddressField(_destCtrl, 'Endereço de destino...', _C.accent),
 
             const SizedBox(height: 12),
 
@@ -395,11 +502,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAddressField({
-    required TextEditingController ctrl,
-    required String hint,
-    required Color dot,
-  }) {
+
+  Widget _buildAddressField(TextEditingController ctrl, String hint, Color dot) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12)),
@@ -474,6 +578,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// ─── Map Modal → ver map_modal.dart ──────────────────────────────────────────
+
+
 // ─── Loading Dialog ───────────────────────────────────────────────────────────
 
 class _LoadingDialog extends StatelessWidget {
@@ -522,11 +629,17 @@ class _EntregaModal extends StatefulWidget {
   final _PriceResponse frete;
   final String origem;
   final String destino;
+  final LatLng origemCoords;
+  final LatLng destinoCoords;
+  final int? distanceMeters;
 
   const _EntregaModal({
     required this.frete,
     required this.origem,
     required this.destino,
+    required this.origemCoords,
+    required this.destinoCoords,
+    this.distanceMeters,
   });
 
   @override
@@ -536,15 +649,107 @@ class _EntregaModal extends StatefulWidget {
 class _EntregaModalState extends State<_EntregaModal> {
   final _nomeCtrl     = TextEditingController();
   final _telefoneCtrl = TextEditingController();
+  final _emailCtrl    = TextEditingController();
   final _notaCtrl     = TextEditingController();
+  DialCountry _dialCountry = kDialCodes.firstWhere((c) => c.code == 'PT');
   bool _loading = false;
+
+  String get _telefoneCompleto {
+    final num = _telefoneCtrl.text.trim();
+    return num.isEmpty ? '' : '${_dialCountry.dial}$num';
+  }
 
   @override
   void dispose() {
     _nomeCtrl.dispose();
     _telefoneCtrl.dispose();
+    _emailCtrl.dispose();
     _notaCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _showCountryPicker() async {
+    final searchCtrl = TextEditingController();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          final filtered = searchCtrl.text.isEmpty
+              ? kDialCodes
+              : kDialCodes
+                  .where((c) =>
+                      c.name.toLowerCase().contains(searchCtrl.text.toLowerCase()) ||
+                      c.dial.contains(searchCtrl.text))
+                  .toList();
+          return Container(
+            height: MediaQuery.of(ctx).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: _C.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: _C.border, borderRadius: BorderRadius.circular(2)),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search, size: 18, color: _C.muted),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: searchCtrl,
+                            autofocus: true,
+                            style: const TextStyle(fontSize: 14, color: _C.primary),
+                            decoration: const InputDecoration(
+                              hintText: 'Pesquisar país...',
+                              hintStyle: TextStyle(color: _C.muted, fontSize: 14),
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
+                              border: InputBorder.none,
+                            ),
+                            onChanged: (_) => setModal(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final c = filtered[i];
+                      return ListTile(
+                        leading: Text(c.flag, style: const TextStyle(fontSize: 22)),
+                        title: Text(c.name, style: const TextStyle(fontSize: 14, color: _C.primary)),
+                        trailing: Text(c.dial, style: const TextStyle(fontSize: 13, color: _C.muted)),
+                        onTap: () {
+                          setState(() => _dialCountry = c);
+                          Navigator.of(ctx).pop();
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    searchCtrl.dispose();
   }
 
   Future<void> _aceitar() async {
@@ -563,8 +768,14 @@ class _EntregaModalState extends State<_EntregaModal> {
         origin:             widget.origem,
         destination:        widget.destino,
         customerName:       _nomeCtrl.text.trim(),
-        customerPhone:      _telefoneCtrl.text.trim(),
+        customerPhone:      _telefoneCompleto,
+        customerEmail:      _emailCtrl.text.trim(),
         customerNote:       _notaCtrl.text.trim(),
+        originLat:          widget.origemCoords.latitude,
+        originLng:          widget.origemCoords.longitude,
+        destLat:            widget.destinoCoords.latitude,
+        destLng:            widget.destinoCoords.longitude,
+        distanceMeters:     widget.distanceMeters,
       );
 
       if (!mounted) return;
@@ -703,7 +914,9 @@ class _EntregaModalState extends State<_EntregaModal> {
                   children: [
                     const Text('Distância', style: TextStyle(fontSize: 13, color: _C.muted)),
                     Text(
-                      '${widget.frete.distanceKm.toStringAsFixed(2).replaceAll('.', ',')} km',
+                      widget.distanceMeters != null
+                          ? '${(widget.distanceMeters! / 1000.0).toStringAsFixed(2).replaceAll('.', ',')} km'
+                          : '—',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _C.primary),
                     ),
                   ],
@@ -735,12 +948,62 @@ class _EntregaModalState extends State<_EntregaModal> {
             icon:  Icons.person_outline_rounded,
           ),
           const SizedBox(height: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Telefone',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _C.muted),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(color: _C.bg, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: _showCountryPicker,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_dialCountry.flag, style: const TextStyle(fontSize: 20)),
+                          const SizedBox(width: 4),
+                          Text(
+                            _dialCountry.dial,
+                            style: const TextStyle(fontSize: 14, color: _C.primary, fontWeight: FontWeight.w600),
+                          ),
+                          const Icon(Icons.arrow_drop_down, size: 18, color: _C.muted),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: 20, color: _C.border, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                    Expanded(
+                      child: TextField(
+                        controller: _telefoneCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        style: const TextStyle(fontSize: 14, color: _C.primary),
+                        decoration: const InputDecoration(
+                          hintText: '912 345 678',
+                          hintStyle: TextStyle(color: _C.muted, fontSize: 14),
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 12),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           _buildField(
-            ctrl:        _telefoneCtrl,
-            label:       'Telefone',
-            hint:        'Ex: +351 912 345 678',
-            icon:        Icons.phone_outlined,
-            inputType:   TextInputType.phone,
+            ctrl:        _emailCtrl,
+            label:       'Email do cliente',
+            hint:        'Ex: joao@email.com',
+            icon:        Icons.email_outlined,
+            inputType:   TextInputType.emailAddress,
           ),
           const SizedBox(height: 10),
           _buildField(
@@ -796,6 +1059,9 @@ class _EntregaModalState extends State<_EntregaModal> {
     );
   }
 }
+
+// ─── Country dial code ────────────────────────────────────────────────────────
+
 
 // ─── Star widget (banner) ─────────────────────────────────────────────────────
 

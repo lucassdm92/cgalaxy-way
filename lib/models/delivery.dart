@@ -3,6 +3,7 @@ class Delivery {
   final String destination;
   final String customerName;
   final String customerPhone;
+  final String? customerEmail;
   final String? customerNote;
   final int priceCalculationId;
   final DateTime dateCreated;
@@ -15,6 +16,7 @@ class Delivery {
     required this.destination,
     required this.customerName,
     required this.customerPhone,
+    this.customerEmail,
     required this.customerNote,
     required this.priceCalculationId,
     required this.dateCreated,
@@ -28,6 +30,7 @@ class Delivery {
         destination:          json['destination'] as String,
         customerName:         json['customer_name'] as String,
         customerPhone:        json['customer_phone'] as String,
+        customerEmail:        json['customer_email'] as String?,
         customerNote:         json['customer_note'] as String?,
         priceCalculationId:   json['price_calculation_id'] as int,
         dateCreated:          DateTime.parse(json['date_created'] as String),

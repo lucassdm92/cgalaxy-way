@@ -20,6 +20,9 @@ class AppConfig {
   static String deliveriesByClient(String userName)   => '$baseUrl/api/delivery/client/$userName';
   static String clientByUsername(String username)    => '$baseUrl/api/client/$username';
 
+  // ── Google Maps ───────────────────────────────────────────────────────────
+  static const String googleMapsKey = 'AIzaSyDlDPvEKc0AmmYhgdN9BwaD9lZJZvLAnM4';
+
   // ── Timeout ───────────────────────────────────────────────────────────────
   static const Duration timeout = Duration(seconds: 20);
 }

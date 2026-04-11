@@ -19,8 +19,9 @@ class SessionService {
   static const _kClientPhone     = 'client_phone';
   static const _kClientAddr      = 'client_address';
   static const _kClientVat       = 'client_vat';
-  static const _kClientCreatedBy = 'client_created_by';
-  static const _kClientActive    = 'client_active';
+  static const _kClientCreatedBy  = 'client_created_by';
+  static const _kClientActive     = 'client_active';
+  static const _kClientCountry    = 'client_country_code';
 
   // ── Cache em memória ────────────────────────────────────────────────────────
 
@@ -55,6 +56,9 @@ class SessionService {
     await prefs.setString(_kClientVat,       client.vat);
     await prefs.setString(_kClientCreatedBy, client.createdBy);
     await prefs.setBool  (_kClientActive,    client.active);
+    if (client.countryCode != null) {
+      await prefs.setString(_kClientCountry, client.countryCode!);
+    }
   }
 
   /// Carrega os dados salvos. Retorna [true] se havia sessão válida (token não expirado).
@@ -88,8 +92,9 @@ class SessionService {
       phone:     prefs.getString(_kClientPhone)     ?? '',
       address:   prefs.getString(_kClientAddr)      ?? '',
       vat:       prefs.getString(_kClientVat)       ?? '',
-      createdBy: prefs.getString(_kClientCreatedBy) ?? '',
-      active:    prefs.getBool(_kClientActive)      ?? true,
+      createdBy:   prefs.getString(_kClientCreatedBy) ?? '',
+      active:      prefs.getBool(_kClientActive)      ?? true,
+      countryCode: prefs.getString(_kClientCountry),
       user: ClientUser(
         username: savedUsername,
         active:   true,

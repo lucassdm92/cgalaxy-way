@@ -26,6 +26,7 @@ class ClientResponse {
   final String createdBy;
   final bool active;
   final ClientUser user;
+  final String? countryCode;
 
   const ClientResponse({
     required this.id,
@@ -37,17 +38,19 @@ class ClientResponse {
     required this.createdBy,
     required this.active,
     required this.user,
+    this.countryCode,
   });
 
   factory ClientResponse.fromJson(Map<String, dynamic> json) => ClientResponse(
-        id:        json['id'] as int?,
-        name:      json['name'] as String,
-        email:     json['email'] as String?,
-        phone:     json['phone'] as String,
-        address:   json['address'] as String,
-        vat:       json['vat'] as String,
-        createdBy: json['created_by'] as String,
-        active:    json['active'] as bool,
-        user:      ClientUser.fromJson(json['user'] as Map<String, dynamic>),
+        id:          json['id'] as int?,
+        name:        json['name'] as String,
+        email:       json['email'] as String?,
+        phone:       json['phone'] as String,
+        address:     json['address'] as String,
+        vat:         json['vat'] as String,
+        createdBy:   json['created_by'] as String,
+        active:      json['active'] as bool,
+        user:        ClientUser.fromJson(json['user'] as Map<String, dynamic>),
+        countryCode: json['country_code'] as String?,
       );
 }

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(flutter pub:*)",
       "Bash(flutter analyze:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(flutter devices:*)"
     ]
   }
 }
