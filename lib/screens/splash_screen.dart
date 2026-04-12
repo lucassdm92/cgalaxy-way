@@ -76,18 +76,10 @@ class _SplashScreenState extends State<SplashScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF5C3A),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Icon(
-                    Icons.delivery_dining,
-                    color: Colors.white,
-                    size: 52,
-                  ),
+                Image.asset(
+                  'assets/images/astronaut_working_on_a_laptop.png',
+                  width: 180,
+                  height: 180,
                 ),
                 const SizedBox(height: 24),
                 const Text(
