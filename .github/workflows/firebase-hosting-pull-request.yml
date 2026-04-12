@@ -16,14 +16,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - name: Create .env
-        run: |
-          echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" > .env
-          echo "API_BASE_URL=${{ secrets.API_BASE_URL }}" >> .env
       - name: Install dependencies
         run: flutter pub get
       - name: Build web
-        run: flutter build web --release
+        run: |
+          flutter build web --release \
+            --dart-define=MAPS_API_KEY=${{ secrets.MAPS_API_KEY }} \
+            --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
