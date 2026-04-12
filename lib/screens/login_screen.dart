@@ -71,15 +71,10 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Logo
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF5C3A),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(Icons.delivery_dining,
-                    color: Colors.white, size: 32),
+              Image.asset(
+                'assets/images/astronaut_working_on_a_laptop.png',
+                width: 80,
+                height: 80,
               ),
               const SizedBox(height: 32),
               const Text(
