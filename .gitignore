@@ -53,3 +53,7 @@ ui-debug.log*
 # --- SISTEMA OPERACIONAL ---
 .DS_Store
 Thumbs.db
+
+# --- CHAVES E SEGREDOS ---
+.env
+android/local.properties

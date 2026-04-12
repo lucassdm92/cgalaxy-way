@@ -1,17 +1,13 @@
 // ─── App Config ──────────────────────────────────────────────────────────────
-// Altere as URLs aqui conforme o ambiente (dev, staging, prod).
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 enum Ambiente { dev, prod }
 
 const Ambiente ambienteAtual = Ambiente.dev;
 
 class AppConfig {
-  static final Map<Ambiente, String> _baseUrls = {
-    Ambiente.dev:  'http://192.168.0.91:8080',
-    Ambiente.prod: 'https://api.galaxyway.com.br', // trocar quando disponível
-  };
-
-  static String get baseUrl => _baseUrls[ambienteAtual]!;
+  static String get baseUrl =>
+      dotenv.env['API_BASE_URL'] ?? 'http://192.168.0.91:8080';
 
   // ── Endpoints ─────────────────────────────────────────────────────────────
   static String get login              => '$baseUrl/api/auth/login';
@@ -21,7 +17,7 @@ class AppConfig {
   static String clientByUsername(String username)    => '$baseUrl/api/client/$username';
 
   // ── Google Maps ───────────────────────────────────────────────────────────
-  static const String googleMapsKey = 'AIzaSyDlDPvEKc0AmmYhgdN9BwaD9lZJZvLAnM4';
+  static String get googleMapsKey => dotenv.env['MAPS_API_KEY'] ?? '';
 
   // ── Timeout ───────────────────────────────────────────────────────────────
   static const Duration timeout = Duration(seconds: 20);
