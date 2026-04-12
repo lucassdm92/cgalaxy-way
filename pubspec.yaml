@@ -51,7 +51,10 @@ flutter_launcher_icons:
   remove_alpha_ios: true
   background_color_ios: "#6230EE"
   web:
-    generate: false
+    generate: true
+    image_path: "assets/images/astronaut_working_on_a_laptop.png"
+    background_color: "#6230EE"
+    theme_color: "#6230EE"
   windows:
     generate: false
   macos:
