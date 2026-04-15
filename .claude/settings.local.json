@@ -6,7 +6,10 @@
       "Bash(cd:*)",
       "Bash(flutter devices:*)",
       "Bash(powershell -Command \"\nAdd-Type -AssemblyName System.Windows.Forms\n\\\\$img = [System.Windows.Forms.Clipboard]::GetImage\\(\\)\nif \\(\\\\$img -ne \\\\$null\\) {\n    \\\\$img.Save\\('E:\\\\GalaxyWayProject\\\\assets\\\\images\\\\astronaut_working_on_a_laptop.png', [System.Drawing.Imaging.ImageFormat]::Png\\)\n    Write-Output 'Imagem salva com sucesso!'\n} else {\n    Write-Output 'Nenhuma imagem encontrada na area de transferencia.'\n}\n\")",
-      "Bash(dart run:*)"
+      "Bash(dart run:*)",
+      "Bash(find /e/GalaxyWayProject/ios -type f \\\\\\(-name GoogleService-Info.plist -o -name *.xcconfig \\\\\\))",
+      "Bash(grep -r \"google\\\\|firebase\\\\|Maps\" /e/GalaxyWayProject/ios --include=*.pbxproj --include=*.swift --include=*.h --include=*.m)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

@@ -324,101 +324,69 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Hero Banner ───────────────────────────────────────────────────────────
 
   Widget _buildHeroBanner() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final bannerWidth = screenWidth - 48;
+    final titleSize   = (bannerWidth * 0.072).clamp(20.0, 34.0);
+    final subtitleSize = (bannerWidth * 0.032).clamp(11.0, 16.0);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        width: double.infinity,
-        height: 170,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0D0D1A),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        clipBehavior: Clip.hardEdge,
-        child: Stack(
-          children: [
-            // Estrelas de fundo
-            ..._stars,
+      child: AspectRatio(
+        aspectRatio: 16 / 7,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D0D1A),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
+            children: [
 
-            // Planeta grande decorativo (direita)
-            Positioned(
-              top: -45, right: -45,
-              child: Container(
-                width: 150, height: 150,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _C.accent.withValues(alpha: 0.12),
+              // Imagem cobrindo o banner inteiro
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/astronauta.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
                 ),
               ),
-            ),
-            // Planeta pequeno (esquerda baixo)
-            Positioned(
-              bottom: -25, left: 100,
-              child: Container(
-                width: 70, height: 70,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF7B2FFF).withValues(alpha: 0.15),
+
+              // Texto sobreposto
+              Positioned(
+                left: bannerWidth * 0.05,
+                bottom: bannerWidth * 0.05,
+                right: bannerWidth * 0.05,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Galaxy Go',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: titleSize,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                        height: 1,
+                      ),
+                    ),
+                    SizedBox(height: bannerWidth * 0.015),
+                    Text(
+                      'Venha fazer parte dessa galaxia',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: subtitleSize,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-
-            // Imagem cobrindo o banner inteiro
-            Positioned.fill(
-              child: Image.asset(
-                'assets/images/astronauta.png',
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-              ),
-            ),
-
-            // Texto sobreposto
-            Positioned(
-              left: 20,
-              bottom: 20,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Galaxy Go',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Venha fazer parte dessa galaxia',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-
-  // Estrelas espalhadas no banner
-  static const _stars = [
-    _Star(left:  18, top: 22, size: 2),
-    _Star(left:  55, top: 12, size: 1.5),
-    _Star(left:  90, top: 38, size: 1),
-    _Star(left:  35, top: 65, size: 1.5),
-    _Star(left: 130, top: 18, size: 1),
-    _Star(left: 160, top: 50, size: 2),
-    _Star(left: 115, top: 80, size: 1),
-    _Star(left:  20, top: 110, size: 1.5),
-    _Star(left:  70, top: 130, size: 1),
-    _Star(left: 145, top: 130, size: 2),
-  ];
-
   // ── Section Title ─────────────────────────────────────────────────────────
 
   Widget _buildSectionTitle(String title) {
